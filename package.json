@@ -18,7 +18,11 @@
     "boilerplate"
   ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "@google/genai": "^1.37.0",
+    "ajv": "^8.12.0",
+    "dotenv": "^17.2.3",
+    "env": "^0.0.2"
+  }
 }
-
-
