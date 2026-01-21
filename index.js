@@ -37,7 +37,7 @@ function deduplicate(arr) {
 
 function detectProjectType(prompt) {
   const lowerPrompt = prompt.toLowerCase();
-  
+
   const frontendOnlyKeywords = [
     "frontend only", "frontend-only", "only frontend",
     "client side", "client-side", "client side only",
@@ -46,69 +46,113 @@ function detectProjectType(prompt) {
     "react app", "vue app", "svelte app", "next.js app",
     "spa", "single page application", "ui only", "ui-only"
   ];
-  
+
   const backendOnlyKeywords = [
     "backend only", "backend-only", "only backend",
     "server only", "server-only", "api only", "api-only",
     "rest api", "graphql api", "express api", "fastify api",
     "microservice", "serverless", "lambda function"
   ];
-  
+
   const fullstackKeywords = [
     "fullstack", "full stack", "full-stack",
     "mern", "mean", "mevn", "full stack app",
     "web application", "web app", "complete app",
     "with database", "with api", "with backend"
   ];
-  
+
   for (const keyword of frontendOnlyKeywords) {
     if (lowerPrompt.includes(keyword)) {
       return "frontend";
     }
   }
-  
+
   for (const keyword of backendOnlyKeywords) {
     if (lowerPrompt.includes(keyword)) {
       return "backend";
     }
   }
-  
+
   for (const keyword of fullstackKeywords) {
     if (lowerPrompt.includes(keyword)) {
       return "fullstack";
     }
   }
-  
+
   if (lowerPrompt.includes("frontend") && !lowerPrompt.includes("backend") && !lowerPrompt.includes("api")) {
     return "frontend";
   }
-  
-  if ((lowerPrompt.includes("backend") || lowerPrompt.includes("api") || lowerPrompt.includes("server")) && 
-      !lowerPrompt.includes("frontend") && !lowerPrompt.includes("client")) {
+
+  if ((lowerPrompt.includes("backend") || lowerPrompt.includes("api") || lowerPrompt.includes("server")) &&
+    !lowerPrompt.includes("frontend") && !lowerPrompt.includes("client")) {
     return "backend";
   }
-  
+
   return "fullstack";
 }
 
-function generateFileContent(filePath, arch, projectName) {
+function detectLanguageFromPrompt(prompt) {
+  const lowerPrompt = prompt.toLowerCase();
+  if (lowerPrompt.includes("typescript") || lowerPrompt.includes("ts")) {
+    return "typescript";
+  }
+  return "javascript";
+}
+
+function generateFileContent(filePath, arch, projectName, language = "javascript") {
   const ext = path.extname(filePath).toLowerCase();
   const name = path.basename(filePath, ext);
   const dir = path.dirname(filePath);
-  
+
   if (ext === ".json") {
     if (name === "package") {
-      return JSON.stringify({
-        name: projectName.toLowerCase().replace(/\s+/g, "-"),
-        version: "1.0.0",
-        type: "module",
-        scripts: {
-          start: "node index.js",
-          dev: "node --watch index.js"
-        },
-        dependencies: {},
-        devDependencies: {}
-      }, null, 2);
+      // Determine if this is backend or frontend
+      const isBackend = filePath.includes("backend");
+
+      if (isBackend) {
+        // Backend package.json
+        return JSON.stringify({
+          name: projectName.toLowerCase().replace(/\s+/g, "-"),
+          version: "1.0.0",
+          type: "module",
+          scripts: {
+            start: language === "typescript" ? "node dist/index.js" : "node index.js",
+            dev: language === "typescript" ? "nodemon --exec tsx index.ts" : "nodemon index.js"
+          },
+          dependencies: {
+            "cors": "^2.8.5",
+            "dotenv": "^17.2.3",
+            "express": "^5.2.1",
+            "helmet": "^8.1.0",
+            "mongoose": "^9.1.5",
+            "morgan": "^1.10.1"
+          },
+          devDependencies: language === "typescript" ? {
+            "@types/cors": "^2.8.19",
+            "@types/express": "^5.0.6",
+            "@types/morgan": "^1.9.10",
+            "@types/node": "^25.0.9",
+            "nodemon": "^3.1.11",
+            "tsx": "^4.10.0",
+            "typescript": "^5.9.3"
+          } : {
+            "nodemon": "^3.1.11"
+          }
+        }, null, 2);
+      } else {
+        // Frontend package.json
+        return JSON.stringify({
+          name: projectName.toLowerCase().replace(/\s+/g, "-"),
+          version: "1.0.0",
+          type: "module",
+          scripts: {
+            start: "node index.js",
+            dev: "node --watch index.js"
+          },
+          dependencies: {},
+          devDependencies: {}
+        }, null, 2);
+      }
     }
     if (name === "tsconfig") {
       return JSON.stringify({
@@ -131,13 +175,13 @@ function generateFileContent(filePath, arch, projectName) {
     }
     return "{}";
   }
-  
+
   if (ext === ".js" || ext === ".jsx" || ext === ".ts" || ext === ".tsx") {
-    if (name === "index" || name === "main" || name === "app") {
+    if (name === "index" || name === "main" || name === "app" || name === "server") {
       if (dir.includes("backend") || dir.includes("server")) {
-        return `import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
+        return `${language === "typescript" ? "import express from 'express';" : "import express from 'express';"}
+import cors from 'cors';
+import dotenv from 'dotenv';
 
 dotenv.config();
 
@@ -147,8 +191,8 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-app.get("/", (req, res) => {
-  res.json({ message: "API is running", project: "${projectName}" });
+app.get('/', (req, res) => {
+  res.json({ message: 'API is running', project: '${projectName}' });
 });
 
 app.listen(PORT, () => {
@@ -175,13 +219,13 @@ const root = ReactDOM.createRoot(document.getElementById("root"));
 root.render(<App />);`;
       }
     }
-    return `// ${name}${ext}\nexport default function ${name}() {\n  return null;\n}`;
+    return `${language === "typescript" ? "// " : "// "}${name}${ext}\nexport default function ${name}() {\n  return null;\n}`;
   }
-  
+
   if (ext === ".css") {
     return `* {\n  margin: 0;\n  padding: 0;\n  box-sizing: border-box;\n}\n\nbody {\n  font-family: system-ui, sans-serif;\n}`;
   }
-  
+
   if (ext === ".html") {
     return `<!DOCTYPE html>
 <html lang="en">
@@ -195,25 +239,25 @@ root.render(<App />);`;
 </body>
 </html>`;
   }
-  
+
   if (ext === ".env" || name === ".env") {
     return `PORT=5000\nNODE_ENV=development`;
   }
-  
+
   if (ext === ".md") {
     return `# ${projectName}\n\nGenerated by mern-gen\n`;
   }
-  
+
   if (ext === ".gitignore") {
     return `node_modules/\n.env\n.DS_Store\ndist/\nbuild/\n*.log`;
   }
-  
+
   return "";
 }
 
 async function callAI(prompt, projectType, retries = 3) {
-  const models = ["gemini-2.0-flash-exp", "gemini-1.5-flash", "gemini-1.5-pro"];
-  
+  const models = ["gemini-3-flash-preview"];
+
   let projectTypeInstruction = "";
   if (projectType === "frontend") {
     projectTypeInstruction = "\nIMPORTANT: This is a FRONTEND-ONLY project. Set backend to empty object {} or minimal structure.";
@@ -222,7 +266,7 @@ async function callAI(prompt, projectType, retries = 3) {
   } else {
     projectTypeInstruction = "\nIMPORTANT: This is a FULLSTACK project. Include both frontend and backend.";
   }
-  
+
   const systemPrompt = `You are an expert software architect. Generate a complete project architecture as JSON.
 ${projectTypeInstruction}
 
@@ -233,10 +277,20 @@ CRITICAL RULES:
 - Use standard npm package names only
 - Include essential files: package.json, .gitignore, README.md
 - Frontend should include index.html if web app
-- Backend should include server entry point
+- Backend should include server entry point (index.js or index.ts) in the ROOT of the backend folder, NOT in src/.
 - DO NOT include "frontend" or "backend" in folder/file paths (they are already in frontend/backend directories)
 - If projectType is "frontend", backend object should be: {"files": [], "folders": [], "dependencies": [], "devDependencies": []}
 - If projectType is "backend", frontend object should be: {"files": [], "folders": [], "dependencies": [], "devDependencies": []}
+- RESPECT the user's language preference (JavaScript vs TypeScript) from the prompt.
+- IF TypeScript is requested:
+  - File extensions MUST be .ts or .tsx (except config files).
+  - Include "typescript", "@types/node", etc. in devDependencies.
+- IF JavaScript is requested (or default):
+  - File extensions MUST be .js or .jsx.
+  - DO NOT include "typescript" in dependencies.
+- Ensure consistency: Don't mix .ts files with no typescript dependency, or .js files with typescript dependency.
+
+
 
 JSON SCHEMA:
 {
@@ -260,7 +314,7 @@ JSON SCHEMA:
     "dependencies": ["string"],
     "devDependencies": ["string"],
     "folders": ["string (relative paths, NO 'backend/' prefix)"],
-    "files": ["string (relative paths with extensions, NO 'backend/' prefix)"]
+    "files": ["string (relative paths with extensions, NO 'backend/' prefix. Entry point must be here)"]
   },
   "rootFiles": ["string (files in project root)"],
   "scripts": {
@@ -280,7 +334,7 @@ JSON SCHEMA:
           parts: [{ text: `${systemPrompt}\n\nUser Request: "${prompt}"\n\nGenerate the architecture JSON now:` }]
         }]
       });
-      
+
       let text = "";
       if (typeof response.text === "string") {
         text = response.text;
@@ -291,14 +345,14 @@ JSON SCHEMA:
       } else if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
         text = response.candidates[0].content.parts[0].text;
       }
-      
+
       if (!text) {
         if (i < retries - 1) continue;
         throw new Error("No text content in AI response");
       }
-      
+
       let parsed = extractJSON(text);
-      
+
       if (!parsed) {
         try {
           parsed = JSON.parse(text);
@@ -307,15 +361,15 @@ JSON SCHEMA:
           throw new Error("Failed to extract valid JSON from AI response");
         }
       }
-      
+
       if (!parsed.projectName) {
         if (i < retries - 1) continue;
         throw new Error("Invalid architecture: missing projectName");
       }
-      
+
       if (!parsed.frontend) parsed.frontend = { files: [], folders: [], dependencies: [], devDependencies: [] };
       if (!parsed.backend) parsed.backend = { files: [], folders: [], dependencies: [], devDependencies: [] };
-      
+
       parsed.frontend.files = deduplicate(parsed.frontend.files || []).filter(f => !f.startsWith("frontend/"));
       parsed.backend.files = deduplicate(parsed.backend.files || []).filter(f => !f.startsWith("backend/"));
       parsed.frontend.folders = deduplicate(parsed.frontend.folders || []).filter(f => !f.startsWith("frontend/"));
@@ -325,7 +379,7 @@ JSON SCHEMA:
       parsed.backend.dependencies = deduplicate(parsed.backend.dependencies || []);
       parsed.frontend.devDependencies = deduplicate(parsed.frontend.devDependencies || []);
       parsed.backend.devDependencies = deduplicate(parsed.backend.devDependencies || []);
-      
+
       return parsed;
     } catch (error) {
       if (i === retries - 1) throw error;
@@ -357,19 +411,19 @@ function createFile(filePath, content) {
 
 function installDependencies(basePath, deps, devDeps = []) {
   if (deps.length === 0 && devDeps.length === 0) return;
-  
+
   try {
     if (!fs.existsSync(path.join(basePath, "package.json"))) {
       execSync("npm init -y", { cwd: basePath, stdio: "pipe" });
     }
-    
+
     if (deps.length > 0) {
       execSync(`npm install ${deps.join(" ")}`, {
         cwd: basePath,
         stdio: "inherit"
       });
     }
-    
+
     if (devDeps.length > 0) {
       execSync(`npm install -D ${devDeps.join(" ")}`, {
         cwd: basePath,
@@ -384,67 +438,108 @@ function installDependencies(basePath, deps, devDeps = []) {
 function setupTailwindCSS(frontendPath) {
   try {
     console.log("🎨 Setting up Tailwind CSS...");
-    
-    if (!fs.existsSync(path.join(frontendPath, "package.json"))) {
-      execSync("npm init -y", { cwd: frontendPath, stdio: "pipe" });
-    }
-    
-    execSync("npm install -D tailwindcss postcss autoprefixer", {
-      cwd: frontendPath,
-      stdio: "pipe"
-    });
-    
-    execSync("npx tailwindcss init -p", {
-      cwd: frontendPath,
-      stdio: "pipe"
-    });
-    
-    const tailwindConfig = `/** @type {import('tailwindcss').Config} */
-export default {
-  content: [
-    "./index.html",
-    "./src/**/*.{js,jsx,ts,tsx}",
-  ],
-  theme: {
-    extend: {},
-  },
-  plugins: [],
-}`;
 
-    const tailwindConfigPath = path.join(frontendPath, "tailwind.config.js");
-    if (!fs.existsSync(tailwindConfigPath)) {
-      createFile(tailwindConfigPath, tailwindConfig);
+    // Step 1: Install Tailwind CSS and Vite plugin
+    console.log("📦 Installing tailwindcss and @tailwindcss/vite...");
+    execSync("npm install tailwindcss @tailwindcss/vite", {
+      cwd: frontendPath,
+      stdio: "inherit"
+    });
+
+    // Step 2: Configure the Vite plugin - handle both vite.config.ts and vite.config.js
+    let viteConfigPath = path.join(frontendPath, "vite.config.ts");
+    let isTypeScript = true;
+
+    if (!fs.existsSync(viteConfigPath)) {
+      viteConfigPath = path.join(frontendPath, "vite.config.js");
+      isTypeScript = false;
     }
-    
-    const indexCssPath = path.join(frontendPath, "src", "index.css");
-    const mainCssPath = path.join(frontendPath, "src", "main.css");
-    const appCssPath = path.join(frontendPath, "src", "App.css");
-    
-    const tailwindDirectives = `@tailwind base;
-@tailwind components;
-@tailwind utilities;
-`;
-    
-    if (fs.existsSync(indexCssPath)) {
-      const existing = fs.readFileSync(indexCssPath, "utf-8");
-      if (!existing.includes("@tailwind")) {
-        fs.writeFileSync(indexCssPath, tailwindDirectives + "\n" + existing);
-      }
-    } else if (fs.existsSync(mainCssPath)) {
-      const existing = fs.readFileSync(mainCssPath, "utf-8");
-      if (!existing.includes("@tailwind")) {
-        fs.writeFileSync(mainCssPath, tailwindDirectives + "\n" + existing);
-      }
-    } else if (fs.existsSync(appCssPath)) {
-      const existing = fs.readFileSync(appCssPath, "utf-8");
-      if (!existing.includes("@tailwind")) {
-        fs.writeFileSync(appCssPath, tailwindDirectives + "\n" + existing);
+
+    let viteConfigContent = "";
+
+    if (fs.existsSync(viteConfigPath)) {
+      // Update existing vite.config
+      viteConfigContent = fs.readFileSync(viteConfigPath, "utf-8");
+      if (!viteConfigContent.includes("@tailwindcss/vite")) {
+        // Add import if not present
+        if (!viteConfigContent.includes("import tailwindcss from '@tailwindcss/vite'")) {
+          if (viteConfigContent.includes("import react from '@vitejs/plugin-react'")) {
+            viteConfigContent = viteConfigContent.replace(
+              "import react from '@vitejs/plugin-react'",
+              "import react from '@vitejs/plugin-react'\nimport tailwindcss from '@tailwindcss/vite'"
+            );
+          } else {
+            viteConfigContent = viteConfigContent.replace(
+              /import { defineConfig } from ['"]vite['"]/,
+              "import { defineConfig } from 'vite'\nimport tailwindcss from '@tailwindcss/vite'"
+            );
+          }
+        }
+        // Add plugin to plugins array - handle different formats
+        if (viteConfigContent.includes("plugins: [react()]")) {
+          viteConfigContent = viteConfigContent.replace(
+            "plugins: [react()]",
+            "plugins: [tailwindcss(), react()]"
+          );
+        } else if (viteConfigContent.includes("plugins: [")) {
+          viteConfigContent = viteConfigContent.replace(
+            /plugins:\s*\[\s*react\(\)/,
+            "plugins: [\n    tailwindcss(),\n    react()"
+          );
+        }
+        fs.writeFileSync(viteConfigPath, viteConfigContent);
+        console.log(`✅ Updated ${isTypeScript ? 'vite.config.ts' : 'vite.config.js'} with Tailwind plugin`);
+      } else {
+        console.log(`✅ ${isTypeScript ? 'vite.config.ts' : 'vite.config.js'} already has Tailwind plugin`);
       }
     } else {
-      createFile(indexCssPath, tailwindDirectives);
+      // Create new vite.config.ts with React and Tailwind
+      viteConfigPath = path.join(frontendPath, "vite.config.ts");
+      viteConfigContent = `import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
+
+export default defineConfig({
+  plugins: [
+    tailwindcss(),
+    react(),
+  ],
+})`;
+      createFile(viteConfigPath, viteConfigContent);
+      console.log("✅ Created vite.config.ts with Tailwind plugin");
     }
-    
-    console.log("✅ Tailwind CSS configured");
+
+    // Step 3: Add @import to CSS file
+    const cssFiles = ["src/index.css", "src/main.css", "src/App.css", "index.css", "main.css"];
+    let cssFileFound = false;
+
+    for (const cssFile of cssFiles) {
+      const fullCssPath = path.join(frontendPath, cssFile);
+      if (fs.existsSync(fullCssPath)) {
+        let cssContent = fs.readFileSync(fullCssPath, "utf-8");
+        if (!cssContent.includes('@import "tailwindcss"')) {
+          cssContent = `@import "tailwindcss";\n\n${cssContent}`;
+          fs.writeFileSync(fullCssPath, cssContent);
+          cssFileFound = true;
+          console.log(`✅ Added Tailwind import to ${cssFile}`);
+          break;
+        } else {
+          cssFileFound = true;
+          console.log(`✅ Tailwind import already present in ${cssFile}`);
+          break;
+        }
+      }
+    }
+
+    // If no CSS file found, create one
+    if (!cssFileFound) {
+      const newCssPath = path.join(frontendPath, "src", "index.css");
+      createDirectory(path.dirname(newCssPath));
+      createFile(newCssPath, `@import "tailwindcss";\n`);
+      console.log("✅ Created new src/index.css with Tailwind import");
+    }
+
+    console.log("✅ Tailwind CSS configured successfully!");
   } catch (error) {
     console.warn(`⚠️  Tailwind setup had issues: ${error.message}`);
   }
@@ -483,7 +578,7 @@ function removeRecursive(dirPath) {
 function fixNestedFolders(basePath) {
   try {
     if (!fs.existsSync(basePath)) return;
-    
+
     const files = fs.readdirSync(basePath);
     for (const file of files) {
       const filePath = path.join(basePath, file);
@@ -509,17 +604,19 @@ function fixNestedFolders(basePath) {
   }
 }
 
-function setupFramework(basePath, framework, projectName) {
+function setupFramework(basePath, framework, projectName, language) {
   try {
     if (framework === "react" || framework === "vite") {
-      execSync("npm create vite@latest . -- --template react", {
+      const template = language === "typescript" ? "react-ts" : "react";
+      execSync(`npm create vite@latest . -- --template ${template}`, {
         cwd: basePath,
         env: { ...process.env, CI: "true" },
         stdio: "pipe"
       });
       fixNestedFolders(basePath);
     } else if (framework === "next") {
-      execSync("npx create-next-app@latest . --yes --typescript=false --eslint=false --tailwind=false --app=false", {
+      const tsFlag = language === "typescript" ? "--typescript" : "--typescript=false";
+      execSync(`npx create-next-app@latest . --yes ${tsFlag} --eslint=false --tailwind=false --app=false`, {
         cwd: basePath,
         stdio: "pipe"
       });
@@ -539,16 +636,17 @@ function setupFramework(basePath, framework, projectName) {
 
 async function generateProject() {
   const userPrompt = process.argv.slice(2).join(" ").trim();
-  
+
   if (!userPrompt) {
     console.error("❌ Please provide a project description");
     console.log("Usage: mern-gen \"build a fullstack app for X\"");
     process.exit(1);
   }
-  
+
   const projectType = detectProjectType(userPrompt);
   console.log(`🤖 Analyzing your request... (Detected: ${projectType === "frontend" ? "Frontend-only" : projectType === "backend" ? "Backend-only" : "Fullstack"})`);
-  
+
+
   let arch;
   try {
     arch = await callAI(userPrompt, projectType);
@@ -556,52 +654,61 @@ async function generateProject() {
     console.error(`❌ Failed to generate architecture: ${error.message}`);
     process.exit(1);
   }
-  
+
+  // Infer language from the generated architecture
+  let language = "javascript";
+  const allDevDeps = [...(arch.frontend.devDependencies || []), ...(arch.backend.devDependencies || [])];
+  if (allDevDeps.some(d => d.includes("typescript"))) {
+    language = "typescript";
+  }
+
+  console.log(`✅ Architecture generated. Using ${language === "typescript" ? "TypeScript" : "JavaScript"} based on AI decision.`);
+
   const projectName = sanitizePath(arch.projectName || "my-project");
   const projectPath = path.join(process.cwd(), projectName);
-  
+
   if (fs.existsSync(projectPath)) {
     console.error(`❌ Directory "${projectName}" already exists`);
     process.exit(1);
   }
-  
+
   console.log(`📁 Creating project: ${projectName}`);
   createDirectory(projectPath);
-  
+
   console.log("📂 Setting up project structure...");
-  
+
   const rootFiles = arch.rootFiles || [];
   rootFiles.push("README.md", ".gitignore");
-  
+
   for (const file of deduplicate(rootFiles)) {
     const filePath = path.join(projectPath, sanitizePath(file));
-    const content = generateFileContent(filePath, arch, projectName);
+    const content = generateFileContent(filePath, arch, projectName, language);
     createFile(filePath, content);
   }
-  
+
   const hasFrontend = arch.frontend && (arch.frontend.files?.length > 0 || arch.frontend.folders?.length > 0 || arch.frontend.framework);
   const hasBackend = arch.backend && (arch.backend.files?.length > 0 || arch.backend.folders?.length > 0 || arch.backend.framework);
-  
+
   if (hasFrontend) {
     console.log("⚛️  Setting up frontend...");
     const frontendPath = path.join(projectPath, "frontend");
     createDirectory(frontendPath);
-    
+
     if (arch.frontend.framework) {
-      setupFramework(frontendPath, arch.frontend.framework, projectName);
+      setupFramework(frontendPath, arch.frontend.framework, projectName, language);
     }
-    
+
     if (!fs.existsSync(path.join(frontendPath, "package.json"))) {
       execSync("npm init -y", { cwd: frontendPath, stdio: "pipe" });
     }
-    
+
     for (const folder of arch.frontend.folders || []) {
       const folderPath = sanitizePath(folder).replace(/^frontend[\\\/]/, "").replace(/^[\\\/]/, "");
       if (folderPath) {
         createDirectory(path.join(frontendPath, folderPath));
       }
     }
-    
+
     for (const file of arch.frontend.files || []) {
       const filePath = sanitizePath(file).replace(/^frontend[\\\/]/, "").replace(/^[\\\/]/, "");
       if (filePath && !fs.existsSync(path.join(frontendPath, filePath))) {
@@ -610,7 +717,7 @@ async function generateProject() {
         createFile(fullPath, content);
       }
     }
-    
+
     if (arch.frontend.dependencies?.length > 0 || arch.frontend.devDependencies?.length > 0) {
       console.log("📦 Installing frontend dependencies...");
       installDependencies(
@@ -619,35 +726,35 @@ async function generateProject() {
         arch.frontend.devDependencies || []
       );
     }
-    
+
     setupTailwindCSS(frontendPath);
   }
-  
+
   if (hasBackend) {
     console.log("🔧 Setting up backend...");
     const backendPath = path.join(projectPath, "backend");
     createDirectory(backendPath);
-    
+
     if (!fs.existsSync(path.join(backendPath, "package.json"))) {
       execSync("npm init -y", { cwd: backendPath, stdio: "pipe" });
     }
-    
+
     for (const folder of arch.backend.folders || []) {
       const folderPath = sanitizePath(folder).replace(/^backend[\\\/]/, "").replace(/^[\\\/]/, "");
       if (folderPath) {
         createDirectory(path.join(backendPath, folderPath));
       }
     }
-    
+
     for (const file of arch.backend.files || []) {
       const filePath = sanitizePath(file).replace(/^backend[\\\/]/, "").replace(/^[\\\/]/, "");
       if (filePath && !fs.existsSync(path.join(backendPath, filePath))) {
         const fullPath = path.join(backendPath, filePath);
-        const content = generateFileContent(fullPath, arch, projectName);
+        const content = generateFileContent(fullPath, arch, projectName, language);
         createFile(fullPath, content);
       }
     }
-    
+
     if (arch.backend.dependencies?.length > 0 || arch.backend.devDependencies?.length > 0) {
       console.log("📦 Installing backend dependencies...");
       installDependencies(
@@ -656,8 +763,41 @@ async function generateProject() {
         arch.backend.devDependencies || []
       );
     }
+
+    // Override package.json with our template that has proper scripts
+    const backendPackageJsonPath = path.join(backendPath, "package.json");
+    if (fs.existsSync(backendPackageJsonPath)) {
+      const existingPackage = JSON.parse(fs.readFileSync(backendPackageJsonPath, "utf-8"));
+      const updatedPackage = {
+        name: existingPackage.name || projectName.toLowerCase().replace(/\s+/g, "-"),
+        version: existingPackage.version || "1.0.0",
+        description: existingPackage.description || "",
+        type: "module",
+        main: existingPackage.main || "index.js",
+        scripts: {
+          start: language === "typescript" ? "node dist/index.js" : "node index.js",
+          dev: language === "typescript" ? "nodemon --exec tsx index.ts" : "nodemon index.js"
+        },
+        keywords: existingPackage.keywords || [],
+        author: existingPackage.author || "",
+        license: existingPackage.license || "ISC",
+        dependencies: existingPackage.dependencies || {},
+        devDependencies: {
+          ...(existingPackage.devDependencies || {}),
+          ...(language === "typescript" ? {
+            "nodemon": "^3.1.11",
+            "tsx": "^4.10.0"
+          } : {
+            "nodemon": "^3.1.11"
+          })
+        }
+      };
+
+      fs.writeFileSync(backendPackageJsonPath, JSON.stringify(updatedPackage, null, 2));
+      console.log("✅ Backend package.json configured with proper scripts");
+    }
   }
-  
+
   console.log("✅ Project generated successfully!");
   console.log(`\n📂 Project location: ${projectPath}`);
   console.log("\n🚀 Next steps:");
