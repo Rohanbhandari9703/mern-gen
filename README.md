@@ -1,6 +1,6 @@
 # ⚡ MERN-Gen
 
-![MERN-Gen Banner](assets/mern-gen-banner.png)
+<!-- ![MERN-Gen Banner](assets/mern-gen-banner.png) -->
 
 **MERN-Gen** is an intelligent, AI-powered CLI tool designed to instantly scaffold full-stack web applications. By leveraging the power of Google's Gemini AI, it interprets natural language prompts to generate production-ready architectures, complete with file structures, dependencies, and configuration files.
 
@@ -81,17 +81,27 @@ mern-gen "Build a social media app with user authentication"
 ```
 
 ### Examples
+
+step 1 >
 ![prompt](assets/prompt.png)
 
+AUTO SETUP
+![auto_setup](assets/auto_setup.png)
 
-
+AUTO GENERATED ARCHITECTURE
+step 3 >
+![auto_generated_architecture](assets/auto_generated_architecture.png) 
+  
+AUTO GENERATED FILES
+>
+ ![auto_generated_files](assets/auto_generated_files.png)
 **Fullstack MERN with TypeScript**
 ```bash
 mern-gen "Create a task management system using MERN stack and TypeScript"
 ```
-![auto_setup](assets/auto_setup.png)
 
-![auto_generated_architecture](assets/auto_generated_architecture.png)
+
+
 
 **Frontend Portfolio**
 ```bash
@@ -104,12 +114,12 @@ mern-gen "A REST API for an e-commerce store using Express and MongoDB"
 ```
 
 ---
-![auto_generated_files](assets/auto_generated_files.png)
+
 ## 🔧 Technologies Used
 
 - **CLI**: Node.js, libraries (`fs`, `child_process`)
 - **Proxy Server**: Express, `@google/genai` SDK
-- **AI Model**: Gemini 1.5 Flash (optimized for speed and logic)
+- **AI Model**: Gemini 3 Flash (optimized for speed and logic)
 
 ---
 
