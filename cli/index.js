@@ -255,9 +255,9 @@ root.render(<App />);`;
 
 async function callAI(prompt, projectType, retries = 3) {
 
-  const API_URL = process.env.MERN_GEN_PROXY_URL || "http://localhost:5001/generate";
+  const API_URL = "https://mern-gen.onrender.com/generate"
 
-  console.log(`Connecting to Server at ....`);
+  console.log(`Connecting to Server  ....`);
 
   for (let i = 0; i < retries; i++) {
     try {

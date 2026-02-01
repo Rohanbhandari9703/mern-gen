@@ -1,9 +1,9 @@
 {
-  "name": "mern-gen",
-  "version": "1.0.0",
+  "name": "boil-gen",
+  "version": "1.0.3",
   "description": "CLI to scaffold a standard MERN backend boilerplate",
   "bin": {
-    "mern-gen": "./index.js"
+    "boil-gen": "./index.js"
   },
   "type": "module",
   "main": "index.js",
